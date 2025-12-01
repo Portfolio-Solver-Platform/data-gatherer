@@ -23,11 +23,11 @@ async def on_startup(request: InitialRequest) -> list[SolveRequest]:
 
 async def on_update(response: SolveResponse) -> UpdateOutput:
     output_data: UserOutputData = {
-        "solver_id": response.solver_id,
-        "problem_id": response.problem_id,
-        "instance_id": response.instance_id,
-        "result": response.result,
-        "vcpus": response.vcpus,
+        "solver_id": response["solver_id"],
+        "problem_id": response["problem_id"],
+        "instance_id": response["instance_id"],
+        "result": response["result"],
+        "vcpus": response["vcpus"],
     }
 
     return UpdateOutput(requests=[], output_data=output_data)

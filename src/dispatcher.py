@@ -166,7 +166,7 @@ async def initial_dispatcher(process_initial_request: Callable[[InitialRequest],
 
                     for task in tasks:
                         metrics.total_requests += 1
-                        body = json.dumps({"task": asdict(task)}).encode()
+                        body = json.dumps(asdict(task)).encode()
 
                         await exchange.publish(
                             aio_pika.Message(
