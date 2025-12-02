@@ -14,7 +14,17 @@ class Config:
         ROOT_PATH = "/"
 
     class RabbitMQ:
-        HOST = os.getenv("RABBITMQ_HOST", "rabbitmq.rabbit-mq.svc.cluster.local")
-        PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
-        USER = os.getenv("RABBITMQ_USER", "guest")
-        PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
+        HOST = os.getenv("RABBITMQ_HOST")
+        PORT = int(os.getenv("RABBITMQ_PORT"))
+        USER = os.getenv("RABBITMQ_USER")
+        PASSWORD = os.getenv("RABBITMQ_PASSWORD")
+
+    PROJECT_ID = os.getenv("PROJECT_ID")
+    CONTROL_QUEUE = os.getenv("CONTROL_QUEUE")
+    DIRECTOR_QUEUE = os.getenv("DIRECTOR_QUEUE")
+    PROJECT_SOLVER_RESULT_QUEUE = os.getenv("PROJECT_SOLVER_RESULT_QUEUE")
+    SOLVER_DIRECTOR_RESULT_QUEUE = os.getenv("SOLVER_DIRECTOR_RESULT_QUEUE")
+
+
+
+
