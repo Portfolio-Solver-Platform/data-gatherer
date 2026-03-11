@@ -2,7 +2,7 @@ import asyncio
 import os
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 
 async def _idle(*args, **kwargs):
