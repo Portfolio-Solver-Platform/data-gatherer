@@ -35,6 +35,7 @@ class SolveRequest:
     instance_id: int
     solver_id: int
     vcpus: int
+    memory_gib: float
 
 
 SolveResponse: TypeAlias = dict[str, Any]

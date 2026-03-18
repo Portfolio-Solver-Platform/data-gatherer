@@ -15,6 +15,7 @@ async def on_startup(request: InitialRequest) -> list[SolveRequest]:
                                 instance_id=instance,
                                 solver_id=solver["id"],
                                 vcpus=solver["vcpus"],
+                                memory_gib=solver["memory_gib"],
                             )
                         )
     return requests
