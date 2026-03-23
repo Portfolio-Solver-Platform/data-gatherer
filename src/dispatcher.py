@@ -5,6 +5,7 @@ from typing import Any, Callable, TypeAlias
 import aio_pika
 from dacite import from_dict
 from src.config import Config
+from src.queues import declare_quorum_queue, retry_or_dlq
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +81,14 @@ async def result_collector(on_update: Callable[[SolveResponse], UpdateOutput], m
     
     async with connection:  
         channel = await connection.channel()
-        queue = await channel.declare_queue(result_queue, durable=True)
-        await channel.declare_queue(director_queue, durable=True)
-        await channel.declare_queue(controller_queue, durable=True)
+        queue = await declare_quorum_queue(channel, result_queue)
+        await channel.declare_queue(director_queue, durable=True, arguments={"x-queue-type": "quorum"})
+        await channel.declare_queue(controller_queue, durable=True, arguments={"x-queue-type": "quorum"})
         exchange = channel.default_exchange
         
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
-                async with message.process():
+                try:
                     logger.info("Received result message")
                     result_data = message.body.decode()
                     result_json = json.loads(result_data)
@@ -104,7 +105,6 @@ async def result_collector(on_update: Callable[[SolveResponse], UpdateOutput], m
 
                     for request in result.requests:
                         body = json.dumps(asdict(request)).encode()
-                        
                         await exchange.publish(
                             aio_pika.Message(
                                 body=body,
@@ -113,14 +113,12 @@ async def result_collector(on_update: Callable[[SolveResponse], UpdateOutput], m
                             routing_key=controller_queue
                         )
                         metrics.total_requests += 1
-                        
-                        
-                    if metrics.total_requests != 0 and metrics.total_requests-metrics.received == 1:
+
+                    if metrics.total_requests != 0 and metrics.total_requests - metrics.received == 1:
                         response["final_message"] = True
                         response["total_messages"] = metrics.total_requests
-                    
-                    body = json.dumps(response).encode()
 
+                    body = json.dumps(response).encode()
                     await exchange.publish(
                         aio_pika.Message(
                             body=body,
@@ -128,9 +126,11 @@ async def result_collector(on_update: Callable[[SolveResponse], UpdateOutput], m
                         ),
                         routing_key=output_queue
                     )
-                    
                     metrics.received += 1
+                    await message.ack()
                     logger.info("Result processed and dispatched.")
+                except Exception as e:
+                    await retry_or_dlq(channel, result_queue, message, e)
                     
                     
     
@@ -150,14 +150,14 @@ async def initial_dispatcher(process_initial_request: Callable[[InitialRequest],
     )
     async with connection:
         channel = await connection.channel()
-        queue = await channel.declare_queue(director_queue, durable=True)
+        queue = await declare_quorum_queue(channel, director_queue)
         exchange = channel.default_exchange
         controller_queue = Config.CONTROL_QUEUE
-        await channel.declare_queue(controller_queue, durable=True)
+        await channel.declare_queue(controller_queue, durable=True, arguments={"x-queue-type": "quorum"})
 
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
-                async with message.process():
+                try:
                     text = message.body.decode()
                     json_message = json.loads(text)
                     initial_request = from_dict(InitialRequest, json_message)
@@ -168,7 +168,6 @@ async def initial_dispatcher(process_initial_request: Callable[[InitialRequest],
                     for task in tasks:
                         metrics.total_requests += 1
                         body = json.dumps(asdict(task)).encode()
-
                         await exchange.publish(
                             aio_pika.Message(
                                 body=body,
@@ -176,5 +175,8 @@ async def initial_dispatcher(process_initial_request: Callable[[InitialRequest],
                             ),
                             routing_key=controller_queue
                         )
+                    await message.ack()
+                except Exception as e:
+                    await retry_or_dlq(channel, director_queue, message, e)
     logger.info(f"Initial dispatcher in {Config.PROJECT_ID} Done.")
 
